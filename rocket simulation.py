@@ -2,65 +2,83 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-# --- Parameters (replace placeholders with real values) ---
-mass = 5000  # kg
-thrust = 1.2e5  # N
-burn_time = 30  # seconds
-drag_coefficient = 0.5
-cross_section_area = 1.0  # m²
-air_density = 1.225  # kg/m³
-time_step = 0.1
-total_time = 520
+# Time settings
+dt = 0.1  # time step (s)
+t_max = 150  # max simulation time (s)
+t = np.arange(0, t_max, dt)
 
-# --- Arrays ---
-times = np.arange(0, total_time, time_step)
+# Placeholder rocket parameters (adjust these based on your design)
+initial_mass = 13350  # kg
+dry_mass = 5427  # kg (after fuel is gone)
+burn_rate = 72  # kg/s
+thrust = 142006.41  # Increased thrust to improve ascent (adjust as needed)
+drag_coefficient = 0.52  # Lower drag coefficient for better ascent
+cross_section_area = 1.22  # m^2
+
+# Constants
+g = 9.81  # gravity (m/s^2)
+air_density = 1.225  # kg/m^3 at sea level
+
+# Initial conditions
+vx, vy, vz = [0], [0], [300]  # Initial velocities (vertical boost for good ascent)
 x, y, z = [0], [0], [0]
-vx, vy, vz = [0], [0], [0]
+mass = initial_mass
 
-# --- Simulation loop ---
-for t in times[1:]:
-    speed = np.sqrt(vx[-1]**2 + vy[-1]**2 + vz[-1]**2)
-    speed_capped = min(speed, 3000)
+# Check thrust-to-weight ratio
+thrust_to_weight = thrust / (mass * g)
+print(f"Initial Thrust-to-Weight Ratio: {thrust_to_weight:.2f}")
 
-    # Drag
-    drag = 0.5 * air_density * drag_coefficient * cross_section_area * speed_capped**2
-    drag_x = drag * (vx[-1] / speed) if speed else 0
-    drag_y = drag * (vy[-1] / speed) if speed else 0
-    drag_z = drag * (vz[-1] / speed) if speed else 0
-
-    # Pitch and yaw angles to spread thrust in X and Y
-    if t <= burn_time:
-        pitch = min(np.radians(30), np.radians(t))  # pitch angle
-        yaw = min(np.radians(20), np.radians(t / 2))  # yaw angle
-
-        fx = thrust * np.sin(pitch) * np.cos(yaw)
-        fy = thrust * np.sin(pitch) * np.sin(yaw)
-        fz = thrust * np.cos(pitch)
+for i in range(1, len(t)):
+    # Reduce mass due to fuel burn
+    if mass > dry_mass:
+        mass -= burn_rate * dt
     else:
-        fx = fy = fz = 0
+        mass = dry_mass  # Ensure mass doesn't go below dry mass
 
-    # Accelerations
-    ax = (fx - drag_x) / mass
-    ay = (fy - drag_y) / mass
-    az = (fz - drag_z - mass * 9.81) / mass
+    # Compute speeds
+    speed = np.sqrt(vx[-1]**2 + vy[-1]**2 + vz[-1]**2)
 
-    # Velocities
-    vx.append(vx[-1] + ax * time_step)
-    vy.append(vy[-1] + ay * time_step)
-    vz.append(vz[-1] + az * time_step)
+    # Drag force (opposes velocity)
+    drag = 0.5 * air_density * drag_coefficient * cross_section_area * speed**2
 
-    # Positions
-    x.append(x[-1] + vx[-1] * time_step)
-    y.append(y[-1] + vy[-1] * time_step)
-    z.append(z[-1] + vz[-1] * time_step)
+    # Simulate lateral thrust components (fx, fy)
+    # Lateral thrust might be directed by guidance or wind, for now, we apply it randomly
+    fx = 0.05 * thrust  # Example: 5% of thrust goes into the x direction
+    fy = 0.05 * thrust  # Example: 5% of thrust goes into the y direction
 
-# --- Plot 3D Path ---
+    # Net thrust in the vertical direction
+    fz = thrust - drag - mass * g  # Net thrust minus drag and gravity
+
+    # Total acceleration
+    ax = fx / mass
+    ay = fy / mass
+    az = fz / mass
+
+    # Velocity update
+    vx.append(vx[-1] + ax * dt)
+    vy.append(vy[-1] + ay * dt)
+    vz.append(vz[-1] + az * dt)
+
+    # Position update
+    x.append(x[-1] + vx[-1] * dt)
+    y.append(y[-1] + vy[-1] * dt)
+    z.append(z[-1] + vz[-1] * dt)
+
+    # Stop if it hits the ground
+    if z[-1] <= 0 and i > 10:
+        break
+
+# Plot 3D trajectory
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.plot(x, y, z, label='3D Flight Path')
-ax.set_xlabel('X (m)')
-ax.set_ylabel('Y (m)')
-ax.set_zlabel('Altitude (m)')
-ax.set_title("3D Rocket Trajectory with Pitch and Yaw")
-ax.legend()
+ax.plot(x, y, z)
+ax.set_xlabel('X (meters)')
+ax.set_ylabel('Y (meters)')
+ax.set_zlabel('Altitude (meters)')
 plt.show()
+
+# Output forces for debugging (just the last timestep here)
+print("Final Forces (N):")
+print(f"F_x = {fx}")
+print(f"F_y = {fy}")
+print(f"F_z = {fz}")
