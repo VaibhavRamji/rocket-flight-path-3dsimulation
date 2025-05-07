@@ -1,2 +1,3 @@
-simulates a rockets flight path
-note:this simulation is just an indication it does not mean this will be your rockets flightpath
+simulates a rocket flight path using python
+NOTE:THIS SIMULATION IS INDICATIVE.THIS DOES NOT MEAN THAT THE ROCKET WILL HAVE THE SAME FLIGHT PATH AS SHOWN IN THE SIMULATION.
+
