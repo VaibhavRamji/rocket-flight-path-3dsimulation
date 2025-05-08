@@ -3,82 +3,73 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Time settings
-dt = 0.1  # time step (s)
-t_max = 150  # max simulation time (s)
-t = np.arange(0, t_max, dt)
+dt = 1
+totaltime = 175
 
-# Placeholder rocket parameters (adjust these based on your design)
-initial_mass = 13350  # kg
-dry_mass = 5427  # kg (after fuel is gone)
-burn_rate = 72  # kg/s
-thrust = 142006.41  # Increased thrust to improve ascent (adjust as needed)
-drag_coefficient = 0.52  # Lower drag coefficient for better ascent
-cross_section_area = 1.22  # m^2
+# Parameters
+initial_mass = 13250    # kg
+final_mass = 5427     # kg
+cd = 0.22
+crossectionalarea = 0.22 # m²
+burn_rate = 70           # kg/s
+initial_velocity = 0
+thrust = 169006.41       # N
+gravity = 9.81           # m/s²
+initial_height = 0       # m
+pitchover_alt = 40000    # m
 
-# Constants
-g = 9.81  # gravity (m/s^2)
-air_density = 1.225  # kg/m^3 at sea level
-
-# Initial conditions
-vx, vy, vz = [0], [0], [300]  # Initial velocities (vertical boost for good ascent)
-x, y, z = [0], [0], [0]
+# Initialization
 mass = initial_mass
+velocity = initial_velocity
+height = initial_height
+horizontal_distance = 0
+pitch_angle = 90
+pitchover_started = False
 
-# Check thrust-to-weight ratio
-thrust_to_weight = thrust / (mass * g)
-print(f"Initial Thrust-to-Weight Ratio: {thrust_to_weight:.2f}")
+# Lists for plotting
+mass_list = []
+velocity_list = []
+height_list = []
+horizontal_list = []
 
-for i in range(1, len(t)):
-    # Reduce mass due to fuel burn
-    if mass > dry_mass:
-        mass -= burn_rate * dt
-    else:
-        mass = dry_mass  # Ensure mass doesn't go below dry mass
+# Simulation loop
+for t in range(1,175):
 
-    # Compute speeds
-    speed = np.sqrt(vx[-1]**2 + vy[-1]**2 + vz[-1]**2)
+    if height >= pitchover_alt and not pitchover_started:
+        pitchover_started = True
+        print("Pitchover started at", height, "meters")
 
-    # Drag force (opposes velocity)
-    drag = 0.5 * air_density * drag_coefficient * cross_section_area * speed**2
+    if pitchover_started:
+        pitch_angle = 0.0000005
+        pitch_angle = max(pitch_angle, 50)
 
-    # Simulate lateral thrust components (fx, fy)
-    # Lateral thrust might be directed by guidance or wind, for now, we apply it randomly
-    fx = 0.05 * thrust  # Example: 5% of thrust goes into the x direction
-    fy = 0.05 * thrust  # Example: 5% of thrust goes into the y direction
+    mass = initial_mass-burn_rate* dt*t
+    a = (thrust - (mass * gravity)) / mass
 
-    # Net thrust in the vertical direction
-    fz = thrust - drag - mass * g  # Net thrust minus drag and gravity
+    new_velocity = velocity + a * dt
+    velocity = new_velocity
 
-    # Total acceleration
-    ax = fx / mass
-    ay = fy / mass
-    az = fz / mass
+    vertical_velocity = velocity * np.sin(np.radians(pitch_angle))
+    horizontal_velocity = velocity * np.cos(np.radians(pitch_angle))
 
-    # Velocity update
-    vx.append(vx[-1] + ax * dt)
-    vy.append(vy[-1] + ay * dt)
-    vz.append(vz[-1] + az * dt)
+    height += vertical_velocity * dt
+    horizontal_distance += horizontal_velocity * dt
 
-    # Position update
-    x.append(x[-1] + vx[-1] * dt)
-    y.append(y[-1] + vy[-1] * dt)
-    z.append(z[-1] + vz[-1] * dt)
+    # Store data
+    mass_list.append(mass)
+    velocity_list.append(velocity)
+    height_list.append(height)
+    horizontal_list.append(horizontal_distance)
 
-    # Stop if it hits the ground
-    if z[-1] <= 0 and i > 10:
-        break
+    if mass <= final_mass:
+        thrust = 0
 
-# Plot 3D trajectory
+# Plotting 3
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.plot(x, y, z)
-ax.set_xlabel('X (meters)')
-ax.set_ylabel('Y (meters)')
-ax.set_zlabel('Altitude (meters)')
-plt.show()
+ax.plot(horizontal_list, velocity_list, height_list, color='purple')
 
-# Output forces for debugging (just the last timestep here)
-print("Final Forces (N):")
-print(f"F_x = {fx}")
-print(f"F_y = {fy}")
-print(f"F_z = {fz}")
+ax.set_xlabel('Horizontal Distance (m)')
+ax.set_ylabel('Velocity (m/s)')
+ax.set_zlabel ('Altitude (m)')
+plt.show()
